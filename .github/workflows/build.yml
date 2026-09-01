@@ -21,23 +21,29 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.2'
           channel: 'stable'
 
-      - name: Prepare Clean Project Structure
+      - name: Build Flutter App from scratch
         run: |
-          mkdir -p lib
-          cp main.dart lib/main.dart
-          flutter create . --platforms=android --project-name exhaust_app --org com.exhaust.sim --overwrite
-          cp main.dart lib/main.dart
-
-      - name: Build Release APK
-        run: |
-          flutter pub get
+          # 1. Создаем чистый проект со всеми системными файлами Android
+          flutter create app --platforms=android --org com.exhaust.sim
+          cd app
+          
+          # 2. Автоматически добавляем аудио-библиотеку
+          flutter pub add audioplayers
+          
+          # 3. Подставляем ваш код main.dart
+          if [ -f ../main.dart ]; then
+            cp ../main.dart lib/main.dart
+          elif [ -f ../lib/main.dart ]; then
+            cp ../lib/main.dart lib/main.dart
+          fi
+          
+          # 4. Собираем готовый релизный APK
           flutter build apk --release
 
-      - name: Upload APK
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: exhaust-sound-app
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
