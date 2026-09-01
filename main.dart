@@ -9,9 +9,6 @@ void main() => runApp(const MaterialApp(
       home: ExhaustAppScreen(),
     ));
 
-// ==========================================
-// 1. ВСТРОЕННЫЙ ГЕНЕРАТОР ЗВУКОВ ДВИГАТЕЛЯ
-// ==========================================
 class EngineAudioSynth {
   final AudioPlayer _enginePlayer = AudioPlayer();
   final AudioPlayer _popPlayer = AudioPlayer();
@@ -24,30 +21,25 @@ class EngineAudioSynth {
     _isReady = true;
   }
 
-  // Генерация WAV-буфера в памяти без внешних файлов
   Future<void> loadEnginePreset(String type) async {
     int sampleRate = 22050;
-    double duration = 1.2; // Длина бесшовной петли в сек
+    double duration = 1.2;
     int numSamples = (sampleRate * duration).toInt();
 
     double baseFreq = (type == 'V8') ? 38.0 : (type == 'V10' ? 52.0 : 44.0);
 
-    // Создаем PCM 16-bit Mono аудио
     var pcmBytes = BytesBuilder();
     Random rnd = Random();
 
     for (int i = 0; i < numSamples; i++) {
       double t = i / sampleRate;
-      // Синтез гармоник цилиндров и выхлопного импульса
       double wave = sin(2 * pi * baseFreq * t) * 0.45;
       wave += sin(2 * pi * baseFreq * 2.0 * t) * 0.25;
       wave += sin(2 * pi * baseFreq * 4.0 * t) * 0.15;
       
-      // Добавляем механический шум и зернистость сгорания
       double noise = (rnd.nextDouble() * 2 - 1) * 0.08;
       wave = (wave + noise).clamp(-1.0, 1.0);
 
-      // Асимметричный дисторшн (эффект прямотока)
       if (wave > 0.3) wave = 0.3 + (wave - 0.3) * 0.5;
 
       int sample = (wave * 32767).toInt();
@@ -61,7 +53,6 @@ class EngineAudioSynth {
     await _enginePlayer.resume();
   }
 
-  // Воспроизведение звука хлопка / отстрела
   Future<void> playPop(double intensity) async {
     int sampleRate = 22050;
     double duration = 0.18;
@@ -72,7 +63,7 @@ class EngineAudioSynth {
 
     for (int i = 0; i < numSamples; i++) {
       double t = i / sampleRate;
-      double decay = exp(-t * 22.0); // Быстрое затухание
+      double decay = exp(-t * 22.0);
       double noise = (rnd.nextDouble() * 2 - 1) * decay;
       int sample = (noise * 32767 * intensity).toInt().clamp(-32768, 32767);
       pcmBytes.addByte(sample & 0xFF);
@@ -85,11 +76,9 @@ class EngineAudioSynth {
 
   void updateSound(double rpm, double throttle, double masterVol) {
     if (!_isReady) return;
-    // Расчет скорости звука от оборотов: 1000 RPM -> 1.0x, 6000 RPM -> 3.2x
     double rate = (rpm / 1800.0).clamp(0.5, 3.8);
     _enginePlayer.setPlaybackRate(rate);
 
-    // Регулировка громкости (тише на сбросе газа, громче при нажатии)
     double volume = (0.35 + (throttle * 0.65)) * masterVol;
     _enginePlayer.setVolume(volume.clamp(0.0, 1.0));
   }
@@ -100,18 +89,18 @@ class EngineAudioSynth {
     int blockAlign = channels * (bitsPerSample ~/ 8);
 
     var header = ByteData(44);
-    header.setUint8(0, 0x52); header.setUint8(1, 0x49); header.setUint8(2, 0x46); header.setUint8(3, 0x46); // "RIFF"
+    header.setUint8(0, 0x52); header.setUint8(1, 0x49); header.setUint8(2, 0x46); header.setUint8(3, 0x46);
     header.setUint32(4, fileSize, Endian.little);
-    header.setUint8(8, 0x57); header.setUint8(9, 0x41); header.setUint8(10, 0x56); header.setUint8(11, 0x45); // "WAVE"
-    header.setUint8(12, 0x66); header.setUint8(13, 0x6D); header.setUint8(14, 0x74); header.setUint8(15, 0x20); // "fmt "
+    header.setUint8(8, 0x57); header.setUint8(9, 0x41); header.setUint8(10, 0x56); header.setUint8(11, 0x45);
+    header.setUint8(12, 0x66); header.setUint8(13, 0x6D); header.setUint8(14, 0x74); header.setUint8(15, 0x20);
     header.setUint32(16, 16, Endian.little);
-    header.setUint16(20, 1, Endian.little); // PCM
+    header.setUint16(20, 1, Endian.little);
     header.setUint16(22, channels, Endian.little);
     header.setUint32(24, sampleRate, Endian.little);
     header.setUint32(28, byteRate, Endian.little);
     header.setUint16(32, blockAlign, Endian.little);
     header.setUint16(34, bitsPerSample, Endian.little);
-    header.setUint8(36, 0x64); header.setUint8(37, 0x61); header.setUint8(38, 0x74); header.setUint8(39, 0x61); // "data"
+    header.setUint8(36, 0x64); header.setUint8(37, 0x61); header.setUint8(38, 0x74); header.setUint8(39, 0x61);
     header.setUint32(40, pcm.length, Endian.little);
 
     var full = BytesBuilder();
@@ -126,9 +115,6 @@ class EngineAudioSynth {
   }
 }
 
-// ==========================================
-// 2. ГЛАВНЫЙ ЭКРАН И UI
-// ==========================================
 class ExhaustAppScreen extends StatefulWidget {
   const ExhaustAppScreen({super.key});
 
@@ -140,7 +126,6 @@ class _ExhaustAppScreenState extends State<ExhaustAppScreen> {
   final EngineAudioSynth _synth = EngineAudioSynth();
   Timer? _ticker;
 
-  // Настройки автомобиля
   String _selectedEngine = 'V8';
   double _rpm = 900.0;
   double _maxRpm = 8000.0;
@@ -155,7 +140,6 @@ class _ExhaustAppScreenState extends State<ExhaustAppScreen> {
     super.initState();
     _synth.init();
 
-    // Цикл физики 60 FPS
     _ticker = Timer.periodic(const Duration(milliseconds: 16), (_) {
       if (_throttle > 0) {
         _rpm = (_rpm + 95).clamp(900.0, _maxRpm);
@@ -200,8 +184,6 @@ class _ExhaustAppScreenState extends State<ExhaustAppScreen> {
               children: [
                 const Text('⚙️ НАСТРОЙКИ СИМУЛЯТОРА', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                 const Divider(color: Colors.white12, height: 24),
-                
-                // Выбор двигателя
                 const Text('Тип двигателя:', style: TextStyle(color: Colors.white70)),
                 const SizedBox(height: 8),
                 Row(
@@ -229,8 +211,6 @@ class _ExhaustAppScreenState extends State<ExhaustAppScreen> {
                   }).toList(),
                 ),
                 const SizedBox(height: 16),
-
-                // Громкость
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -248,8 +228,6 @@ class _ExhaustAppScreenState extends State<ExhaustAppScreen> {
                     setModalState(() {});
                   },
                 ),
-
-                // Отстрелы выхлопа
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Отстрелы выхлопа (Pop & Bang)', style: TextStyle(color: Colors.white70)),
@@ -292,7 +270,6 @@ class _ExhaustAppScreenState extends State<ExhaustAppScreen> {
           padding: const EdgeInsets.all(20.0),
           child: Column(
             children: [
-              // Верхняя панель: Наддув и Газ
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -307,8 +284,6 @@ class _ExhaustAppScreenState extends State<ExhaustAppScreen> {
                 ],
               ),
               const Spacer(),
-
-              // Круговой тахометр
               Stack(
                 alignment: Alignment.center,
                 children: [
@@ -346,8 +321,6 @@ class _ExhaustAppScreenState extends State<ExhaustAppScreen> {
                 ],
               ),
               const Spacer(),
-
-              // Педаль газа
               GestureDetector(
                 onTapDown: (_) => _onGasDown(),
                 onTapUp: (_) => _onGasUp(),
