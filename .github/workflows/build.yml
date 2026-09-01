@@ -9,30 +9,41 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
-      - uses: subosito/flutter-action@v2
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          cache: true
 
-      - name: Setup Android Project Structure
+      - name: Generate Android Project
         run: |
-          flutter create temp_app --platforms=android
-          cp -r temp_app/android ./android
+          flutter create temp_app --platforms=android --org com.exhaust.sim
+          cp -rn temp_app/android ./android || true
           mkdir -p lib
-          cp main.dart lib/main.dart
+          cp main.dart lib/main.dart 2>/dev/null || true
+          rm -rf temp_app
 
-      - name: Build APK
+      - name: Set Min Android SDK
         run: |
-          flutter pub get
-          flutter build apk --release
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle 2>/dev/null || true
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle 2>/dev/null || true
 
-      - name: Upload Artifact
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build Release APK
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: exhaust-sound-app
